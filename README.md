@@ -310,6 +310,47 @@
   }
   ```
 
+##### `local-exec` Arguments Supported
+- `command` - (Required) This is the command to execute. It can be provided as a relative path to the current working directory or as an absolute path. It is evaluated in a shell, and can use environment variables or Terraform variables.
+- `working_dir` - (Optional) If provided, specifies the working directory where `command` will be executed. It can be provided as as a relative path to the current working directory or as an absolute path. The directory must exist.
+- `interpreter` - (Optional) If provided, this is a list of interpreter arguments used to execute the command. The first argument is the interpreter itself. It can be provided as a relative path to the current working directory or as an absolute path. The remaining arguments are appended prior to the command. This allows building command lines of the form "/bin/bash", "-c", "echo foo". If `interpreter` is unspecified, sensible defaults will be chosen based on the system OS.
+- `environment` - (Optional) block of key value pairs representing the environment of the executed command. inherits the current process environment.
+- Examples:
+
+  ```hcl
+  resource "null_resource" "example1" {
+    provisioner "local-exec" {
+      command = "open WFH, '>completed.txt' and print WFH scalar localtime"
+      interpreter = ["perl", "-e"]
+    }
+  }
+  ```
+
+  ```hcl
+  resource "null_resource" "example2" {
+    provisioner "local-exec" {
+      command = "Get-Date > completed.txt"
+      interpreter = ["PowerShell", "-Command"]
+    }
+  }
+  ```
+
+  ```hcl
+  resource "aws_instance" "web" {
+    # ...
+
+    provisioner "local-exec" {
+      command = "echo $FOO $BAR $BAZ >> env_vars.txt"
+
+      environment = {
+        FOO = "bar"
+        BAR = 1
+        BAZ = "true"
+      }
+    }
+  }
+  ```
+
 #### `remote-exec` Provisioner
 - The `remote-exec` provisioner invokes a script on a remote resource after it is created. 
 - This can be used to run a configuration management tool, bootstrap into a cluster, etc.
@@ -327,6 +368,32 @@
     }
   }
   ```
+
+##### `remote-exec` Arguments Supported
+- `inline` - This is a list of command strings. They are executed in the order they are provided. This cannot be provided with `script` or `scripts`.
+- `script` - This is a path (relative or absolute) to a local script that will be copied to the remote resource and then executed. This cannot be provided with `inline` or `scripts`.
+- `scripts` - This is a list of paths (relative or absolute) to local scripts that will be copied to the remote resource and then executed. They are executed in the order they are provided. This cannot be provided with `inline` or `script`.
+
+##### Passing Script Arguments
+- You cannot pass any arguments to scripts using the script or scripts arguments to this provisioner. If you want to specify arguments, upload the script with the file provisioner and then use inline to call it, e.g.
+
+```hcl
+resource "aws_instance" "web" {
+  # ...
+
+  provisioner "file" {
+    source      = "script.sh"
+    destination = "/tmp/script.sh"
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "chmod +x /tmp/script.sh",
+      "/tmp/script.sh args",
+    ]
+  }
+}
+```
 
 ## 4 Use the Terraform CLI (outside of core workflow)
 
