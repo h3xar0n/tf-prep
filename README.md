@@ -439,6 +439,24 @@ The command-line flags are all optional. The list of available flags are:
 
 / https://learn.hashicorp.com/terraform/getting-started/provision#failed-provisioners-and-tainted-resources
 
+#### Tainting a Single Resource
+```bash
+$ terraform taint aws_security_group.allow_all
+The resource aws_security_group.allow_all in the module root has been marked as tainted.
+```
+
+#### Tainting a single resource created with for_each
+```bash
+$ terraform taint 'module.route_tables.azurerm_route_table.rt[\"DefaultSubnet\"]'
+The resource module.route_tables.azurerm_route_table.rt["DefaultSubnet"] in the module root has been marked as tainted.
+```
+
+#### Tainting a Resource within a Module
+```bash
+$ terraform taint "module.couchbase.aws_instance.cb_node[9]"
+Resource instance module.couchbase.aws_instance.cb_node[9] has been marked as tainted.
+```
+
 ### 4c Given a scenario: choose when to use terraform import to import existing infrastructure into your Terraform state
 
 / https://www.terraform.io/docs/commands/import.html
