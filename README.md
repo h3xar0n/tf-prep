@@ -857,17 +857,17 @@ $ terraform init \
     - IAM policies and logging can be used to identify any invalid access.
     - Requests for the state go over a TLS connection.
 
-## 8  Read, generate, and modify configuration                                              
+## 8  Read, generate, and modify configuration
 ### 8a Demonstrate use of variables and outputs
 
 / Expressions https://www.terraform.io/docs/configuration/expressions.html
 
-### 8b Describe secure secret injection best practice                                        
-### 8c Understand the use of collection and structural types                                 
-### 8d Create and differentiate resource and data configuration                              
-### 8e Use resource addressing and resource parameters to connect resources together         
-### 8f Use Terraform built-in functions to write configuration                               
-### 8g Configure resource using a dynamic block                                              
+### 8b Describe secure secret injection best practice
+### 8c Understand the use of collection and structural types
+### 8d Create and differentiate resource and data configuration
+### 8e Use resource addressing and resource parameters to connect resources together
+### 8f Use Terraform built-in functions to write configuration
+### 8g Configure resource using a dynamic block
 ### 8h Describe built-in dependency management (order of execution based)
 
 ## 9  Understand Terraform Cloud and Enterprise capabilities
@@ -889,24 +889,25 @@ $ terraform init \
 
   main = rule { valid_time and valid_day }
   ```
-- **Managing policies for organizations** - Users with permission to manage policies can add policies to their organization by configuring VCS integration or uploading policy sets through the API. They also define which workspaces the policy sets are checked against during runs. 
+
+- **Managing policies for organizations** - Users with permission to manage policies can add policies to their organization by configuring VCS integration or uploading policy sets through the API. They also define which workspaces the policy sets are checked against during runs.
 - **Enforcing policy checks on runs** - Policies are checked when a run is performed, after the `terraform plan` but before it can be confirmed or the `terraform apply` is executed.
 - **Mocking Sentinel Terraform data** - Terraform Cloud provides the ability to generate mock data for any run within a workspace. This data can be used with the Sentinel CLI to test policies before deployment.
 
 
 #### Registry
-- Terraform Cloud's private module registry helps you share Terraform modules across your organization. 
-  * It includes support for module versioning, a searchable and filterable list of available modules, and a configuration designer to help you build new workspaces faster.
-- By design, the private module registry works much like the public Terraform Registry. 
-  * If you're already used the public registry, Terraform Cloud's registry will feel familiar.
+- Terraform Cloud's private module registry helps you share Terraform modules across your organization.
+  - It includes support for module versioning, a searchable and filterable list of available modules, and a configuration designer to help you build new workspaces faster.
+- By design, the private module registry works much like the public Terraform Registry.
+  - If you're already used the public registry, Terraform Cloud's registry will feel familiar.
 - Note: Currently, the private module registry works with all supported VCS providers; however, the private module registry does not support GitLab subgroups.
 
 #### Workspaces
 
 ##### Workspaces are Collections of Infrastructure
 - Working with Terraform involves managing collections of infrastructure resources, and most organizations manage many different collections.
-- When run locally, Terraform manages each collection of infrastructure with a persistent working directory, which contains a configuration, state data, and variables. 
-  * Since Terraform CLI uses content from the directory it runs in, you can organize infrastructure resources into meaningful groups by keeping their configurations in separate directories.
+- When run locally, Terraform manages each collection of infrastructure with a persistent working directory, which contains a configuration, state data, and variables.
+  - Since Terraform CLI uses content from the directory it runs in, you can organize infrastructure resources into meaningful groups by keeping their configurations in separate directories.
 - Terraform Cloud manages infrastructure collections with workspaces instead of directories. A workspace contains everything Terraform needs to manage a given collection of infrastructure, and separate workspaces function like completely separate working directories.
 - Note: Terraform Cloud and Terraform CLI both have features called "workspaces," but they're slightly different. CLI workspaces are alternate state files in the same working directory; they're a convenience feature for using one configuration to manage multiple similar groups of resources.
 
@@ -925,10 +926,10 @@ $ terraform init \
 ##### Listing and Filtering Workspaces
 - This list only includes workspaces where the current user account has permission to read runs.
 - The following filters are available:
-  * **Status filters**: These filters sort workspaces by the status of their current run. There are four quick filter buttons that collect the most commonly used groups of statuses (success, error, needs attention, and running), and a custom filter button (with a funnel icon) where you can select any number of statuses from a menu.
+  - **Status filters**: These filters sort workspaces by the status of their current run. There are four quick filter buttons that collect the most commonly used groups of statuses (success, error, needs attention, and running), and a custom filter button (with a funnel icon) where you can select any number of statuses from a menu.
   When you choose a status filter, the list will only include workspaces whose current runs match the selected statuses. You can remove the status filter by clicking the "All" button, or by unchecking everything in the custom filter menu.
-  * **List order**: The list order button is marked with two arrows, pointing up and down. You can choose to order the list by time or by name, in forward or reverse order.
-  * **Name filter**: The search field at the far right of the filter bar lets you filter workspaces by name. If you enter a string in this field and press enter, only workspaces whose names contain that string will be shown.
+  - **List order**: The list order button is marked with two arrows, pointing up and down. You can choose to order the list by time or by name, in forward or reverse order.
+  - **Name filter**: The search field at the far right of the filter bar lets you filter workspaces by name. If you enter a string in this field and press enter, only workspaces whose names contain that string will be shown.
   The name filter can combine with a status filter, to narrow the list down further.
 
 ##### Planning and Organizing Workspaces
