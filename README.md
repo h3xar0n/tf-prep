@@ -663,19 +663,200 @@ Resource instance module.couchbase.aws_instance.cb_node[9] has been marked as ta
 
 ## 7  Implement and maintain state
 
-### 7a Describe default local backend 
+### 7a Describe default local backend
+- By default, Terraform uses the "local" backend, which is the normal behavior of Terraform you're used to.
+- The local backend stores state on the local filesystem, locks that state using system APIs, and performs operations locally.
+> **Investigate**
+- By default, the path to the state file is "terraform.tfstate" relative to the root module.
+  - Modify using the `path` variable:
+  ```hcl
+  terraform {
+    backend "local" {
+      path = "relative/path/to/terraform.tfstate"
+    }
+  }
+  ```
+- **workspace_dir** - optionally provides the path to non-default workspaces.
 
+### 7b Outline state locking
+> **Simplify**
+- Some backends do not support state locking or have it optionally:
+  - [artifactory](https://www.terraform.io/docs/backends/types/artifactory.html)
+  - [etcd](https://www.terraform.io/docs/backends/types/etcd.html)
+  - [http](https://www.terraform.io/docs/backends/types/http.html) (Optional)
+- If supported by your backend, state locking happens automatically on all operations that could write state.
+- You won't see any message that it is happening. If state locking fails, Terraform will not continue. You can disable state locking for most commands with the `-lock` flag but it is not recommended.
+- If acquiring the lock is taking longer than expected, Terraform will output a status message.
+- If Terraform doesn't output a message, state locking is still occurring if your backend supports it.
 
+#### Force Unlock
+> **Investigate**
+- `terraform force-unlock LOCK_ID [DIR]`
+  - **`-force`** - Don't ask for input for unlock confirmation.
+- Terraform has a `force-unlock` command to manually unlock the state if unlocking failed.
+- **Be very careful with this command.**
+  - If you unlock the state when someone else is holding the lock it could cause multiple writers.
+  - Force unlock should only be used to unlock your own lock in the situation where automatic unlocking failed.
+- To protect you, the `force-unlock` command requires a unique lock ID. Terraform will output this lock ID if unlocking fails. This lock ID acts as a nonce, ensuring that locks and unlocks target the correct lock.
 
-### 7b Outline state locking                                                                 
-### 7c Handle backend authentication methods                                                 
-### 7d Describe remote state storage mechanisms and supported standard backends     
+### 7c Handle backend authentication methods
+> **Investigate**
+- **`token`** - (Optional, not recommended) The token used to authenticate with the remote backend.
+```hcl
+terraform {
+  backend "remote" {
+    hostname = "app.terraform.io"
+    token = "xxxxxxxxxxxxxxxxxxx"
+    organization = "company"
 
-/ Remote State https://www.terraform.io/docs/state/remote.html
+    workspaces {
+      name = "my-app-prod"
+    }
+  }
+}
+```
+- They recommend omitting the token from the configuration as shown above, and instead using `terraform login` or manually configuring credentials in the CLI config file (`.terraformrc` on all OS except Windows, `terraform.rc`).
+  - `terraform login [hostname]` - command to automatically obtain and save an API token for TF Cloud, Enterprise, or other host. If no explicit hostname, defaults to Terraform Cloud [app.terraform.io](https://app.terraform.io/).
+    - By default, Terraform will obtain an API token and save it in plain text in a local CLI configuration file called `credentials.tfrc.json`.
+    - When you run `terraform login`, it will explain specifically where it intends to save the API token and give you a chance to cancel if the current configuration is not as desired.
+  - In the CLI config file (`.terraformrc` on all OS except Windows, `terraform.rc`), use a `credentials` block to set the token:
+  ```bash
+  credentials "app.terraform.io" {
+    token = "xxxxxx.atlasv1.zzzzzzzzzzzzz"
+  }
 
-### 7e Describe effect of Terraform refresh on state                                         
-### 7f Describe backend block in configuration and best practices for partial configurations 
-### 7g Understand secret management in state files                                           
+  plugin_cache_dir = "$HOME/.terraform.d/plugin-cache"
+  ```
+
+### 7d Describe remote state storage mechanisms and supported standard backends
+> **Simplify**
+- Most backends run all operations on the local system — although Terraform stores its state remotely with these backends, it still executes its logic locally and makes API requests directly from the system where it was invoked.
+- This is simple to understand and work with, but when many people are collaborating on the same Terraform configurations, it requires everyone's execution environment to be similar.
+  - This includes sharing access to infrastructure provider credentials, keeping Terraform versions in sync, keeping Terraform variables in sync, and installing any extra software required by Terraform providers.
+  - This becomes more burdensome as teams get larger.
+- Some backends can run operations (plan, apply, etc.) on a remote machine, while appearing to execute locally. This enables a more consistent execution environment and more powerful access controls, without disrupting workflows for users who are already comfortable with running Terraform.
+- Currently, the **remote backend** is the only backend to support remote operations, and **Terraform Cloud** is the only remote execution environment that supports it.
+- Standard backends:
+  - artifactory
+  - azurerm
+  - consul
+  - cos
+  - etcd
+  - etcdv3
+  - gcs
+  - http
+  - manta
+  - oss
+  - pg
+  - s3
+  - swift
+  - terraform enterprise
+
+### 7e Describe effect of Terraform refresh on state
+> **Investigate**
+- `terraform state` detects drift from the last known state and updates the state file.
+- It does not modify **infrastructure** but it does modify the **state file**.
+- Usage: terraform refresh [options] [dir]
+  - By default, refresh requires no flags and looks in the current directory for the configuration and state file to refresh.
+  - `-backup=path` - Path to the backup file. Defaults to -state-out with the ".backup" extension. Disabled by setting to "-".
+  - `-compact-warnings` - If Terraform produces any warnings that are not accompanied by errors, show them in a more compact form that includes only the summary messages.
+  - `-input=true` - Ask for input for variables if not directly set.
+  - `-lock=true` - Lock the state file when locking is supported.
+  - `-lock-timeout=0s` - Duration to retry a state lock.
+  - `-no-color` - If specified, output won't contain any color.
+  - `-parallelism=n` - Limit the number of concurrent operation as Terraform walks the graph. Defaults to 10.
+  - `-state=path` - Path to read and write the state file to. Defaults to "terraform.tfstate". Ignored when remote state is used.
+  - `-state-out=path` - Path to write updated state file. By default, the -state path will be used. Ignored when remote state is used.
+  - `-target=resource` - A Resource Address to target. Operation will be limited to this resource and its dependencies. This flag can be used multiple times.
+  - `-var 'foo=bar'` - Set a variable in the Terraform configuration. This flag can be set multiple times. Variable values are interpreted as HCL, so list and map values can be specified via this flag.
+  - `-var-file=foo` - Set variables in the Terraform configuration from a variable file. If a terraform.tfvars or any .auto.tfvars files are present in the current directory, they will be automatically loaded. terraform.tfvars is loaded first and the .auto.tfvars files after in alphabetical order. Any files specified by -var-file override any values set automatically from files in the working directory. This flag can be used multiple times.
+
+### 7f Describe backend block in configuration and best practices for partial configurations
+
+#### Backend Configuration
+> **Simplify**
+- Backends are configured directly in Terraform files in the terraform section. After configuring a backend, it has to be **initialized**.
+- Example configuring the "consul" backend:
+  ```hcl
+  terraform {
+    backend "consul" {
+      address = "demo.consul.io"
+      scheme  = "https"
+      path    = "example_app/terraform_state"
+    }
+  }
+  ```
+- You specify the backend type as a key to the backend stanza.
+  - Within the stanza are backend-specific configuration keys.
+- Only one backend may be specified and the configuration may not contain interpolations.
+  - Terraform will validate this.
+
+#### First Time Configuration
+> **Simplify**
+- When configuring a backend for the first time (moving from no defined backend to explicitly configuring one), Terraform will give you the option to migrate your state to the new backend.
+  - This lets you adopt backends without losing any existing state.
+- To be extra careful, we always recommend manually backing up your state as well.
+  - You can do this by simply copying your terraform.tfstate file to another location.
+  - The initialization process should create a backup as well, but it never hurts to be safe!
+- Configuring a backend for the first time is no different than changing a configuration in the future: create the new configuration and run `terraform init`.
+  - Terraform will guide you the rest of the way.
+
+#### Partial Configuration
+> **Investigate**
+- You do not need to specify every required argument in the backend configuration.
+  - Omitting certain arguments may be desirable to avoid storing secrets, such as access keys, within the main configuration.
+  - When some or all of the arguments are omitted, we call this a **partial configuration**.
+- With a partial configuration, the remaining configuration arguments must be provided as part of the initialization process. There are several ways to supply the remaining arguments:
+  - **Interactively**: Terraform will interactively ask you for the required values, unless interactive input is disabled. Terraform will not prompt for optional values.
+  - **File**: A configuration file may be specified via the init command line. To specify a file, use the -backend-config=PATH option when running terraform init. If the file contains secrets it may be kept in a secure data store, such as Vault, in which case it must be downloaded to the local disk before running Terraform.
+  - **Command-line key/value pairs**: Key/value pairs can be specified via the init command line. Note that many shells retain command-line flags in a history file, so this isn't recommended for secrets. To specify a single key/value pair, use the -backend-config="KEY=VALUE" option when running terraform init.
+- If backend settings are provided in multiple locations, the **top-level settings** are merged such that any c**ommand-line options override** the settings in the main configuration and then the **command-line options are processed in order**, with **later options overriding values set by earlier options**.
+- The final, merged configuration is stored on disk in the `.terraform` directory, which should be **ignored from version control**. This means that **sensitive information can be omitted from version control**, but it will be present in plain text on local disk when running Terraform.
+- When using partial configuration, Terraform requires at a minimum that an empty backend configuration is specified in one of the root Terraform configuration files, to specify the backend type. For example:
+```hcl
+terraform {
+  backend "consul" {}
+}
+```
+- A backend configuration file has the contents of the backend block as top-level attributes, without the need to wrap it in another terraform or backend block:
+```hcl
+address = "demo.consul.io"
+path    = "example_app/terraform_state"
+scheme  = "https"
+```
+- The same settings can alternatively be specified on the command line as follows:
+```bash
+$ terraform init \
+    -backend-config="address=demo.consul.io" \
+    -backend-config="path=example_app/terraform_state" \
+    -backend-config="scheme=https"
+```
+
+### 7g Understand secret management in state files
+
+#### Sensitive Data in State
+> **Simplify**
+- Terraform state can contain sensitive data, depending on the resources in use and your definition of "sensitive."
+  - The state contains resource IDs and all resource attributes.
+  - For resources such as databases, this may contain initial passwords.
+- When using local state, state is stored in plain-text JSON files.
+- When using remote state, state is only ever held in memory when used by Terraform.
+  - It may be encrypted at rest, but this depends on the specific remote state backend.
+
+#### Recommendations
+> **Simplify**
+- If you manage any sensitive data with Terraform (like database passwords, user passwords, or private keys), treat the state itself as sensitive data.
+- Storing state remotely can provide better security.
+  - As of Terraform 0.9, Terraform does not persist state to the local disk when remote state is in use, and some backends can be configured to encrypt the state data at rest.
+- For example:
+  - **Terraform Cloud** always encrypts state at rest and protects it with TLS in transit.
+    - Terraform Cloud also knows the identity of the user requesting state and maintains a history of state changes.
+    - This can be used to control access and track activity.
+    - Terraform Enterprise also supports detailed audit logging.
+  - **The S3 backend** supports encryption at rest when the encrypt option is enabled.
+    - IAM policies and logging can be used to identify any invalid access.
+    - Requests for the state go over a TLS connection.
+
 ## 8  Read, generate, and modify configuration                                              
 ### 8a Demonstrate use of variables and outputs
 
