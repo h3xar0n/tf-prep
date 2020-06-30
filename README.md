@@ -37,28 +37,29 @@
 - Terraform also stores other metadata for similar reasons, such as a pointer to the provider configuration that was most recently used with the resource in situations where multiple aliased providers are present.
 
 #### Performance
-- Terraform stores a cache of the attribute values for all resources in the state. 
-- This is the most optional feature of Terraform state and is done only as a performance improvement.
-- When running a `terraform plan`, Terraform must know the current state of resources in order to effectively determine the changes that it needs to make to reach your desired configuration.
-- For *small infrastructures,* the **default behavior of Terraform** is: 
-  > For every plan and apply, Terraform queries your providers and syncs the latest attributes from all resources in your state.
-- For *larger infrastructures*, the default of querying every resource is too slow. 
-  * Many cloud providers do not provide APIs to query multiple resources at once
-  * The round trip time for each resource is 100s of milliseconds
-  * On top of this, cloud providers almost always have API rate limiting so Terraform can only request a certain number of resources in a period of time. 
-- Larger users of Terraform make heavy use of the `-refresh=false` flag as well as the `-target` flag in order to work around this, e.g.
-  * [`terraform apply -refresh=false`](https://www.terraform.io/docs/commands/apply.html#refresh-true) does not update the state for each resource prior to applying. (This has no effect if a plan file is given directly to apply.)
-  * [`terraform plan -target=resource`](https://www.terraform.io/docs/commands/plan.html#target-resource) only focuses Terraform's attention on the specified resource. Since it can be used multiple times, you can create a single plan file for multiple targets.
-  * [`terraform apply -target=resource`](https://www.terraform.io/docs/commands/apply.html#target-resource) only applies specified resources from Terraform's state.
-- In these scenarios, the cached state is treated as the record of truth.
+> **Simplify**
+>  - Terraform stores a cache of the attribute values for all resources in the state. 
+>  - This is the most optional feature of Terraform state and is done only as a performance improvement.
+>  - When running a `terraform plan`, Terraform must know the current state of resources in order to effectively determine the changes that it needs to make to reach your desired configuration.
+>  - For *small infrastructures,* the **default behavior of Terraform** is: 
+    > For every plan and apply, Terraform queries your providers and syncs the latest attributes from all resources in your state.
+>  - For *larger infrastructures*, the default of querying every resource is too slow. 
+    * Many cloud providers do not provide APIs to query multiple resources at once
+    * The round trip time for each resource is 100s of milliseconds
+    * On top of this, cloud providers almost always have API rate limiting so Terraform can only request a certain number of resources in a period of time. 
+>  - Larger users of Terraform make heavy use of the `-refresh=false` flag as well as the `-target` flag in order to work around this, e.g.
+    * [`terraform apply -refresh=false`](https://www.terraform.io/docs/commands/apply.html#refresh-true) does not update the state for each resource prior to applying. (This has no effect if a plan file is given directly to apply.)
+    * [`terraform plan -target=resource`](https://www.terraform.io/docs/commands/plan.html#target-resource) only focuses Terraform's attention on the specified resource. Since it can be used multiple times, you can create a single plan file for multiple targets.
+    * [`terraform apply -target=resource`](https://www.terraform.io/docs/commands/apply.html#target-resource) only applies specified resources from Terraform's state.
+>  - In these scenarios, the cached state is treated as the record of truth.
 
-/ Resource Targeting https://www.terraform.io/docs/commands/plan.html#resource-targeting
-
+> **Investigate** 
+> - Resource Targeting https://www.terraform.io/docs/commands/plan.html#resource-targeting
 
 #### Syncing
 * For solo use, Terraform creates a state file in the local directory.
 * This local file can lead to conflicts when a team is working with the same state.
-* To avoid conflicts, using remote state enables teams to benefit from state locking.
+* To avoid conflicts, using remote state enables teams to benefit from **state locking**.
 
 ## 3 Understand Terraform basics
 
@@ -71,8 +72,9 @@
   * which attributes it exports
   * how changes to resources of that type are actually applied to remote APIs
 - Most of the available providers correspond to one cloud or on-premises infrastructure platform, and offer resource types that correspond to each of the features of that platform.
-- Providers usually require some configuration of their own to specify endpoint URLs, regions, authentication settings, and so on. 
-- All resource types belonging to the same provider will share the same configuration, avoiding the need to repeat this common information across every resource declaration.
+> **Investigate**
+> - Providers usually require some configuration of their own to specify endpoint URLs, regions, authentication settings, and so on. 
+> - All resource types belonging to the same provider will share the same configuration, avoiding the need to repeat this common information across every resource declaration.
 
 #### Provider Configuration
 - A provider configuration is created using a provider block:
@@ -85,29 +87,33 @@
 - Terraform associates each resource type with a provider by taking the *first word of the resource type name*, e.g. 
   - the "google" provider is assumed to be the provider for the resource type name `google_compute_instance`.
   - the "aws" provider is assumed for `aws_instance`.
-- Since provider configurations must be evaluated in order to perform any resource type action, provider configurations may refer only to values that are known before the configuration is applied. 
-- In particular, avoid referring to attributes exported by other resources unless their values are specified directly in the configuration.
+> **Investigate**
+> - Since provider configurations must be evaluated in order to perform any resource type action, provider configurations may refer only to values that are known before the configuration is applied. 
+> - In particular, avoid referring to attributes exported by other resources unless their values are specified directly in the configuration.
 
 #### Initialization
-- Provider initialization is one of the actions of `terraform init`. Running this command will download and initialize any providers that are not already initialized.
-- Providers downloaded by `terraform init` are only installed for the *current working directory*; other working directories can have their own installed provider versions.
-- Note that `terraform init` *cannot automatically download providers that are not distributed by HashiCorp*.
+> **Simplify**
+> - Provider initialization is one of the actions of `terraform init`. 
+>  * Running this command will download and initialize any providers that are not already initialized.
+> - Providers downloaded by `terraform init` are only installed for the *current working directory*; other working directories can have their own installed provider versions.
+> - Note that `terraform init` *cannot automatically download providers that are not distributed by HashiCorp*.
 
 #### Provider Versions
 - Providers are plugins released on a separate rhythm from Terraform itself, and so they have their own version numbers. 
 - For production use, you should constrain the acceptable provider versions via configuration, to ensure that new versions with breaking changes will not be automatically installed by terraform init in future.
-- When `terraform init` is run *without provider version constraints*, it prints a suggested version constraint string for each provider:
-  ```
-  The following providers do not have any version constraints in configuration,
-  so the latest version was installed.
-
-  To prevent automatic upgrades to new major versions that may contain breaking
-  changes, it is recommended to add version = "..." constraints to the
-  corresponding provider blocks in configuration, with the constraint strings
-  suggested below.
-  
-  * provider.aws: version = "~> 1.0"
-  ```
+> **Investigate**
+> - When `terraform init` is run *without provider version constraints*, it prints a suggested version constraint string for each provider:
+>  ```
+>  The following providers do not have any version constraints in configuration,
+>  so the latest version was installed.
+>
+>  To prevent automatic upgrades to new major versions that may contain breaking
+>  changes, it is recommended to add version = "..." constraints to the
+>  corresponding provider blocks in configuration, with the constraint strings
+>  suggested below.
+>  
+>  * provider.aws: version = "~> 1.0"
+>  ```
 - To constrain the provider version as suggested, add a required_providers block inside a terraform block:
   ```hcl
   terraform {
@@ -116,12 +122,15 @@
     }
   }
   ```
-- When `terraform init` is re-run with providers already installed, it will use an already-installed provider that meets the constraints in preference to downloading a new version. 
-- To upgrade to the latest acceptable version of each provider, run `terraform init -upgrade`. This command also upgrades to the latest versions of all Terraform modules.
+> **Investigate**
+> - When `terraform init` is re-run with providers already installed, it will use an already-installed provider that meets the constraints in preference to downloading a new version. 
+- To upgrade to the latest acceptable version of each provider, run `terraform init -upgrade`. 
+  * This command also upgrades to the latest versions of all Terraform modules.
 
 #### Writing Custom Providers
 
-/ Writing Custom Providers https://www.terraform.io/docs/extend/writing-custom-providers.html
+> **Investigate** 
+> * Writing Custom Providers https://www.terraform.io/docs/extend/writing-custom-providers.html
 
 #### Terraform Settings
 
@@ -137,44 +146,47 @@
   ```
   
 ##### Specifying a Required Terraform Version
-- The `required_version` setting can be used to constrain which versions of the Terraform CLI can be used with your configuration. 
-- If the running version of Terraform doesn't match the constraints specified, Terraform will produce an error and exit without taking any further actions.
-- When you use child modules, each module can specify its own version requirements. 
-  * The requirements of all modules in the tree must be satisfied.
-- The `required_version` setting applies only to the version of Terraform CLI. 
-- Various behaviors of Terraform are actually implemented by Terraform Providers, which are [released on a cycle independent of Terraform CLI and of each other](#provider-versions). 
-- Re-usable modules should constrain only the minimum allowed version, such as `>= 0.12.0`. 
-  * This specifies the earliest version that the module is compatible with while leaving the user of the module flexibility to upgrade to newer versions of Terraform without altering the module.
+> **Simplify**
+>  - The `required_version` setting can be used to constrain which versions of the Terraform CLI can be used with your configuration. 
+>  - If the running version of Terraform doesn't match the constraints specified, Terraform will produce an error and exit without taking any further actions.
+>  - When you use child modules, each module can specify its own version requirements. 
+>    * The requirements of all modules in the tree must be satisfied.
+>  - The `required_version` setting applies only to the version of Terraform CLI. 
+>  - Various behaviors of Terraform are actually implemented by Terraform Providers, which are [released on a cycle independent of Terraform CLI and of each other](#provider-versions). 
+>  - Re-usable modules should constrain only the minimum allowed version, such as `>= 0.12.0`. 
+>    * This specifies the earliest version that the module is compatible with while leaving the user of the module flexibility to upgrade to newer versions of Terraform without altering the module.
 
 ##### Experimental Language Features
-- From time to time the Terraform team will introduce new language features initially via an opt-in experiment, so that the community can try the new feature and give feedback on it prior to it becoming a backward-compatibility constraint.
-- In releases where experimental features are available, you can enable them on a per-module basis by setting the experiments argument inside a terraform block:
-  ```hcl
-  terraform {
-    experiments = [example]
-  }
-  ```
-- The above would opt in to an experiment named example, assuming such an experiment were available in the current Terraform version.
-  * Experiments are subject to arbitrary changes in later releases and, depending on the outcome of the experiment, may change drastically before final release or may not be released in stable form at all. 
-  * Such breaking changes may appear even in minor and patch releases. 
-  * We do not recommend using experimental features in Terraform modules intended for production use.
-- In order to make that explicit and to avoid module callers inadvertently depending on an experimental feature, any module with experiments enabled will generate a warning on every `terraform plan` or `terraform apply`. 
-- If you want to try experimental features in a shared module, we recommend enabling the experiment only in alpha or beta releases of the module.
-- The introduction and completion of experiments is reported in Terraform's changelog, so you can watch the release notes there to discover which experiment keywords, if any, are available in a particular Terraform release.
+> **Simplify**
+>- In releases where experimental features are available, you can enable them on a per-module basis by setting the experiments argument inside a terraform block:
+>  ```hcl
+>  terraform {
+>    experiments = [example]
+>  }
+>  ```
+>- The above would opt in to an experiment named example, assuming such an experiment were available in the current Terraform version.
+>  * Experiments are subject to arbitrary changes in later releases and, depending on the outcome of the experiment, may change drastically before final release or may not be released in stable form at all. 
+>  * Such breaking changes may appear even in minor and patch releases. 
+>  * We do not recommend using experimental features in Terraform modules intended for production use.
+>- In order to make that explicit and to avoid module callers inadvertently depending on an experimental feature, any module with experiments enabled will generate a warning on every `terraform plan` or `terraform apply`. 
+>- If you want to try experimental features in a shared module, we recommend enabling the experiment only in alpha or beta releases of the module.
+>- The introduction and completion of experiments is reported in Terraform's changelog, so you can watch the release notes there to discover which experiment keywords, if any, are available in a particular Terraform release.
 
 ### 3b Describe plug-in based architecture
 
-/ https://learn.hashicorp.com/terraform/getting-started/build#initialization
+> **Investigate**
+> - https://learn.hashicorp.com/terraform/getting-started/build#initialization
 
 ### 3c Demonstrate using multiple providers
 
-/ https://learn.hashicorp.com/terraform/getting-started/build#providers
+> **Investigate**
+> - https://learn.hashicorp.com/terraform/getting-started/build#providers
 
 ### 3d Describe how Terraform finds and fetches providers
 
-
 #### `alias`: Multiple Provider Instances
 
+> **Investigate**
 - To include multiple configurations for a given provider, include multiple provider blocks with the same provider name, but set the alias meta-argument to an alias name to use for each additional configuration. e.g.:
   ```hcl
   # The default provider configuration
@@ -212,6 +224,7 @@
       }
       ```
 #### Third-party plugins
+> **Investigate**
 - Install third-party providers by placing their plugin executables in the user plugins directory. 
 - The user plugins directory is in one of the following locations, depending on the host operating system:
   | Operating system  | User plugins directory          |
@@ -231,6 +244,7 @@
 - Terraform uses plugins from the root of the plugins directory and from the subdirectory that corresponds to the current system, ignoring other subdirectories.
 
 #### Provider Plugin Cache
+> **Investigate**
 - By default, `terraform init` downloads plugins into a subdirectory of the working directory so that each working directory is self-contained. 
   * As a consequence, if you have multiple configurations that use the same provider then a separate copy of its plugin will be downloaded for each configuration.
 - Given that provider plugins can be quite large (on the order of 100s of megabytes), this default behavior can be inconvenient for those with slow or metered Internet connections. 
@@ -259,6 +273,7 @@
 - Please note that Terraform will never itself delete a plugin from the plugin cache once it's been placed there. Over time, as plugins are upgraded, the cache directory may grow to contain several unused versions which must be manually deleted.
 
 ### 3e Explain when to use and not use provisioners and when to use local-exec or remote-exec
+> **Simplify**
 - Provisioners add a considerable amount of complexity and uncertainty to Terraform usage. 
   * Terraform cannot model the actions of provisioners as part of a plan because they can in principle take any action.   
   * Successful use of provisioners requires coordinating many more details than Terraform usage usually requires: 
@@ -267,6 +282,7 @@
     - making sure that all of the necessary external software is installed, etc.
 
 #### Passing data into virtual machines and other compute resources
+> **Simplify**
 - When deploying virtual machines or other similar compute resources, we often need to pass in data about other related infrastructure that the software on that server will need to do its job.
 - The various provisioners that interact with remote servers over SSH or WinRM can potentially be used to pass such data by logging in to the server and providing it directly, but most cloud computing platforms provide mechanisms to pass data to instances at the time of their creation such that the data is immediately available on system boot. For example:
   * Alibaba Cloud: `user_data` on `alicloud_instance` or `alicloud_launch_template`.
@@ -282,6 +298,7 @@
 - Even if you're deploying individual servers directly with Terraform, passing data this way will allow faster boot times and simplify deployment by avoiding the need for direct network access from Terraform to the new server and for remote access credentials to be provided.
 
 #### Running configuration management software
+> **Simplify**
 - As a convenience to users who are forced to use generic operating system distribution images, Terraform includes a number of specialized provisioners for launching specific configuration management products.
   * We strongly recommend not using these, and instead running system configuration steps during a custom image build process. 
   * For example, HashiCorp Packer offers a similar complement of configuration management provisioners and can run their installation steps during a separate build process, before creating a system disk image that you can deploy many times.
@@ -289,6 +306,7 @@
   * To achieve that, use one of the mechanisms described above to pass the necessary information into each instance so that it can register itself with the configuration management server immediately on boot, without the need to accept commands from Terraform over SSH or WinRM.
 
 #### First-class Terraform provider functionality may be available
+> **Investigate**
 - It is technically possible to use the local-exec provisioner to run the CLI for your target system in order to create, update, or otherwise interact with remote objects in that system.
   * If you are trying to use a new feature of the remote system that isn't yet supported in its Terraform provider, that might be the only option. 
   * However, if there is provider support for the feature you intend to use, prefer to use that provider functionality rather than a provisioner so that Terraform can be fully aware of the object and properly manage ongoing changes to it.
@@ -297,6 +315,7 @@
 - Provisioners are used to execute scripts on a local or remote machine as part of resource creation or destruction. - - Provisioners can be used to bootstrap a resource, cleanup before destroy, run configuration management, etc.
 
 #### `local-exec` Provisioner
+> **Simplify**
 - The `local-exec` provisioner invokes a local executable after a resource is created. 
   *  Note that even though the resource will be fully created when the provisioner is run, there is no guarantee that it will be in an operable state - for example system services such as `sshd` may not be started yet on compute resources.
  
@@ -311,6 +330,7 @@
   ```
 
 ##### `local-exec` Arguments Supported
+> **Investigate**
 - `command` - (Required) This is the command to execute. It can be provided as a relative path to the current working directory or as an absolute path. It is evaluated in a shell, and can use environment variables or Terraform variables.
 - `working_dir` - (Optional) If provided, specifies the working directory where `command` will be executed. It can be provided as as a relative path to the current working directory or as an absolute path. The directory must exist.
 - `interpreter` - (Optional) If provided, this is a list of interpreter arguments used to execute the command. The first argument is the interpreter itself. It can be provided as a relative path to the current working directory or as an absolute path. The remaining arguments are appended prior to the command. This allows building command lines of the form "/bin/bash", "-c", "echo foo". If `interpreter` is unspecified, sensible defaults will be chosen based on the system OS.
@@ -370,11 +390,13 @@
   ```
 
 ##### `remote-exec` Arguments Supported
+> **Investigate**
 - `inline` - This is a list of command strings. They are executed in the order they are provided. This cannot be provided with `script` or `scripts`.
 - `script` - This is a path (relative or absolute) to a local script that will be copied to the remote resource and then executed. This cannot be provided with `inline` or `scripts`.
 - `scripts` - This is a list of paths (relative or absolute) to local scripts that will be copied to the remote resource and then executed. They are executed in the order they are provided. This cannot be provided with `inline` or `script`.
 
 ##### Passing Script Arguments
+> **Investigate**
 - You cannot pass any arguments to scripts using the script or scripts arguments to this provisioner. If you want to specify arguments, upload the script with the file provisioner and then use inline to call it, e.g.
 
 ```hcl
@@ -398,7 +420,7 @@ resource "aws_instance" "web" {
 ## 4 Use the Terraform CLI (outside of core workflow)
 
 ### 4a Given a scenario: choose when to use terraform fmt to format code
-
+> **Simplify**
 - Other Terraform commands that generate Terraform configuration will produce configuration files that conform to the style imposed by `terraform fmt`, so using this style in your own files will ensure consistency.
 - The canonical format may change in minor ways between Terraform versions, so after upgrading Terraform they recommend to proactively run `terraform fmt` on your modules along with any other changes you are making to adopt the new version.
 
@@ -408,6 +430,7 @@ By default, `fmt` scans the current directory for configuration files. If the `d
 
 The command-line flags are all optional. The list of available flags are:
 
+> **Investigate**
 * `-list=false` - Don't list the files containing formatting inconsistencies.
 * `-write=false` - Don't overwrite the input files. (This is implied by -check or when the input is STDIN.)
 * `-diff` - Display diffs of formatting changes
@@ -415,6 +438,7 @@ The command-line flags are all optional. The list of available flags are:
 * `-recursive` - Also process files in subdirectories. By default, only the given directory (or current directory) is processed.
 
 ### 4b Given a scenario: choose when to use terraform taint to taint Terraform resources
+> **Investigate**
 - This command will not modify infrastructure, but does modify the state file in order to mark a resource as tainted. 
 - Once a resource is marked as tainted, the next plan will show that the resource will be destroyed and recreated and the next apply will implement this change.
 - Forcing the recreation of a resource is useful when you want a certain side effect of recreation that is not visible in the attributes of a resource. 
@@ -437,7 +461,8 @@ The command-line flags are all optional. The list of available flags are:
     - `-state=path` - Path to read and write the state file to. Defaults to "terraform.tfstate". Ignored when remote state is used.
     - `-state-out=path` - Path to write updated state file. By default, the -state path will be used. Ignored when remote state is used.
 
-/ https://learn.hashicorp.com/terraform/getting-started/provision#failed-provisioners-and-tainted-resources
+> **Investigate**
+> - https://learn.hashicorp.com/terraform/getting-started/provision#failed-provisioners-and-tainted-resources
 
 #### Tainting a Single Resource
 ```bash
@@ -459,43 +484,53 @@ Resource instance module.couchbase.aws_instance.cb_node[9] has been marked as ta
 
 ### 4c Given a scenario: choose when to use terraform import to import existing infrastructure into your Terraform state
 
-/ https://www.terraform.io/docs/commands/import.html
+> **Investigate**
+> - https://www.terraform.io/docs/commands/import.html
 
 ### 4d Given a scenario: choose when to use terraform workspace to create workspaces		
 
-/ https://www.terraform.io/docs/state/workspaces.html
+> **Investigate**
+> - https://www.terraform.io/docs/state/workspaces.html
 
 ### 4e Given a scenario: choose when to use terraform state to view Terraform state
 
-/ https://www.terraform.io/docs/commands/state/index.html
+> **Investigate**
+> - https://www.terraform.io/docs/commands/state/index.html
 
 ### 4f Given a scenario: choose when to enable verbose logging and what the outcome/value is
 
-/ https://www.terraform.io/docs/internals/debugging.html
+> **Investigate**
+> - https://www.terraform.io/docs/internals/debugging.html
 
 ## 5 Interact with Terraform modules
 
 ### 5a Contrast module source options
 
-/ https://www.terraform.io/docs/registry/modules/use.html#finding-modules
+> **Investigate**
+> - https://www.terraform.io/docs/registry/modules/use.html#finding-modules
 
 ### 5b Interact with module inputs and outputs
 
-/ https://learn.hashicorp.com/terraform/modules/modules-overview
+> **Investigate**
+> - https://learn.hashicorp.com/terraform/modules/modules-overview
 
 ### 5c Describe variable scope within modules/child modules
 
-/ https://www.terraform.io/docs/configuration/variables.html
+> **Investigate**
+> - https://www.terraform.io/docs/configuration/variables.html
 
-/ https://www.terraform.io/docs/configuration/modules.html#calling-a-child-module
+> **Investigate**
+> - https://www.terraform.io/docs/configuration/modules.html#calling-a-child-module
 
 ### 5d Discover modules from the public Terraform Module Registry 
 
-/ https://www.terraform.io/docs/registry/modules/use.html#using-modules
+> **Investigate**
+> - https://www.terraform.io/docs/registry/modules/use.html#using-modules
 
 ### 5e Defining module version   
 
-/ https://www.terraform.io/docs/configuration/modules.html#module-versions
+> **Investigate**
+> - https://www.terraform.io/docs/configuration/modules.html#module-versions
 
 ## 6  Navigate Terraform workflow     
 
@@ -549,8 +584,105 @@ Resource instance module.couchbase.aws_instance.cb_node[9] has been marked as ta
 ### 8e Use resource addressing and resource parameters to connect resources together         
 ### 8f Use Terraform built-in functions to write configuration                               
 ### 8g Configure resource using a dynamic block                                              
-### 8h Describe built-in dependency management (order of execution based)                    
-## 9  Understand Terraform Cloud and Enterprise capabilities                                
-### 9a Describe the benefits of Sentinel, registry, and workspaces                           
-### 9b Differentiate OSS and Terraform Cloud workspaces                                      
-### 9c Summarize features of Terraform Cloud                                                 #                               
+### 8h Describe built-in dependency management (order of execution based)
+
+## 9  Understand Terraform Cloud and Enterprise capabilities
+
+### 9a Describe the benefits of Sentinel, registry, and workspaces
+
+#### Sentinel
+- **Define the policies in TF Cloud** - Policies are defined using the policy language with imports for parsing the Terraform plan, state and configuration, e.g.,
+  ```hcl
+  import "time"
+
+  # Validate time is between 8 AM and 4 PM
+  valid_time = rule { time.now.hour >= 8 and time.now.hour < 16 }
+
+  # Validate day is M - Th
+  valid_day = rule {
+      time.now.weekday_name in ["Monday", "Tuesday", "Wednesday", "Thursday"]
+  }
+
+  main = rule { valid_time and valid_day }
+  ```
+- **Managing policies for organizations** - Users with permission to manage policies can add policies to their organization by configuring VCS integration or uploading policy sets through the API. They also define which workspaces the policy sets are checked against during runs. 
+- **Enforcing policy checks on runs** - Policies are checked when a run is performed, after the `terraform plan` but before it can be confirmed or the `terraform apply` is executed.
+- **Mocking Sentinel Terraform data** - Terraform Cloud provides the ability to generate mock data for any run within a workspace. This data can be used with the Sentinel CLI to test policies before deployment.
+
+
+#### Registry
+- Terraform Cloud's private module registry helps you share Terraform modules across your organization. 
+  * It includes support for module versioning, a searchable and filterable list of available modules, and a configuration designer to help you build new workspaces faster.
+- By design, the private module registry works much like the public Terraform Registry. 
+  * If you're already used the public registry, Terraform Cloud's registry will feel familiar.
+- Note: Currently, the private module registry works with all supported VCS providers; however, the private module registry does not support GitLab subgroups.
+
+#### Workspaces
+
+##### Workspaces are Collections of Infrastructure
+- Working with Terraform involves managing collections of infrastructure resources, and most organizations manage many different collections.
+- When run locally, Terraform manages each collection of infrastructure with a persistent working directory, which contains a configuration, state data, and variables. 
+  * Since Terraform CLI uses content from the directory it runs in, you can organize infrastructure resources into meaningful groups by keeping their configurations in separate directories.
+- Terraform Cloud manages infrastructure collections with workspaces instead of directories. A workspace contains everything Terraform needs to manage a given collection of infrastructure, and separate workspaces function like completely separate working directories.
+- Note: Terraform Cloud and Terraform CLI both have features called "workspaces," but they're slightly different. CLI workspaces are alternate state files in the same working directory; they're a convenience feature for using one configuration to manage multiple similar groups of resources.
+
+**Workspace Contents**
+
+| Component               | Local Terraform                                             | Terraform Cloud                                                            |
+|-------------------------|-------------------------------------------------------------|----------------------------------------------------------------------------|
+| Terraform configuration | On disk                                                     | In linked version control repository, or periodically uploaded via API/CLI |
+| Variable values         | As .tfvars files, as CLI arguments, or in shell environment | In workspace                                                               |
+| State                   | On disk or in remote backend                                | In workspace                                                               |
+| Credentials and secrets | In shell environment or entered at prompts                  | In workspace, stored as sensitive variables                                |
+
+- **State versions**: Each workspace retains backups of its previous state files. Although only the current state is necessary for managing resources, the state history can be useful for tracking changes over time or recovering from problems. (See also: State.)
+- **Run history**: When Terraform Cloud manages a workspace's Terraform runs, it retains a record of all run activity, including summaries, logs, a reference to the changes that caused the run, and user comments. (See also: Viewing and Managing Runs.)
+
+##### Listing and Filtering Workspaces
+- This list only includes workspaces where the current user account has permission to read runs.
+- The following filters are available:
+  * **Status filters**: These filters sort workspaces by the status of their current run. There are four quick filter buttons that collect the most commonly used groups of statuses (success, error, needs attention, and running), and a custom filter button (with a funnel icon) where you can select any number of statuses from a menu.
+  When you choose a status filter, the list will only include workspaces whose current runs match the selected statuses. You can remove the status filter by clicking the "All" button, or by unchecking everything in the custom filter menu.
+  * **List order**: The list order button is marked with two arrows, pointing up and down. You can choose to order the list by time or by name, in forward or reverse order.
+  * **Name filter**: The search field at the far right of the filter bar lets you filter workspaces by name. If you enter a string in this field and press enter, only workspaces whose names contain that string will be shown.
+  The name filter can combine with a status filter, to narrow the list down further.
+
+##### Planning and Organizing Workspaces
+- We recommend that organizations break down large monolithic Terraform configurations into smaller ones, then assign each one to its own workspace and delegate permissions and responsibilities for them. Terraform Cloud can manage monolithic configurations just fine, but managing smaller infrastructure components like this is the best way to take full advantage of Terraform Cloud's governance and delegation features.
+- For example, the code that manages your production environment's infrastructure could be split into a networking configuration, the main application's configuration, and a monitoring configuration. After splitting the code, you would create "networking-prod", "app1-prod", "monitoring-prod" workspaces, and assign separate teams to manage them.
+- Much like splitting monolithic applications into smaller microservices, this enables teams to make changes in parallel. In addition, it makes it easier to re-use configurations to manage other environments of infrastructure ("app1-dev," etc.).
+
+### 9b Differentiate OSS and Terraform Cloud workspaces
+
+#### OSS Workspaces
+
+Creating a new workspace:
+
+```
+$ terraform workspace new bar
+Created and switched to workspace "bar"!
+
+You're now on a new, empty workspace. Workspaces isolate their state,
+so if you run "terraform plan" Terraform will not see any existing state for this configuration.
+```
+
+As the command says, if you run `terraform plan`, Terraform will not see any existing resources that existed on the default (or any other) workspace. These resources still physically exist, but are managed in another Terraform workspace.
+
+### 9c Summarize features of Terraform Cloud
+
+| Cloud Free              | Cloud Team              | Cloud Team & Governance | Enterprise Self-Hosted       |
+|-------------------------|-------------------------|-------------------------|------------------------------|
+| VCS Integration         | VCS Integration         | VCS Integration         | VCS Integration              |
+| Workspace Management    | Workspace Management    | Workspace Management    | Workspace Management         |
+| Secure Variable Storage | Secure Variable Storage | Secure Variable Storage | Secure Variable Storage      |
+| Remote Runs & Applies   | Remote Runs & Applies   | Remote Runs & Applies   | Remote Runs & Applies        |
+| Full API Coverage       | Full API Coverage       | Full API Coverage       | Full API Coverage            |
+| Private Module Registry | Private Module Registry | Private Module Registry | Private Module Registry      |
+|                         | Roles / Team Management | Roles / Team Management | Roles / Team Management      |
+|                         |                         | Sentinel                | Sentinel                     |
+|                         |                         | Cost Estimation         | Cost Estimation              |
+|                         |                         |                         | SAML / SSO                   |
+|                         |                         |                         | Private DC Installation      |
+|                         |                         |                         | Private Network Connectivity |
+|                         |                         |                         | Self-Hosted                  |
+|                         |                         |                         | Audit Logs                   |
