@@ -112,6 +112,12 @@
 / https://www.hashicorp.com/blog/infrastructure-as-code-in-a-private-or-public-cloud/#iac-makes-infrastructure-more-reliable
 
 ## 2 Understand Terraform's purpose (vs other IaC)
+Terraform's advantages are:
+- Platform Agnostic
+- State Management
+- Operator Confidence
+
+https://learn.hashicorp.com/terraform/getting-started/intro
 
 ### 2a Explain multi-cloud and provider-agnostic benefits
 - By using only a single region or cloud provider, fault tolerance is limited by the availability of that provider.
@@ -858,6 +864,19 @@ $ terraform init \
     - Requests for the state go over a TLS connection.
 
 ## 8  Read, generate, and modify configuration
+
+- How would you use the current workspace name in your configuration file?
+
+```hcl
+locals {
+  machine_name = "${terraform.workspace}_machine"
+}
+```
+
+- `resource` is not a reserved *variable name* in terraform. However it is a reserved *word* https://www.terraform.io/docs/configuration/variables.html#declaring-an-input-variable
+
+- When using a local backend, Terraform creates a directory and stores the corresponding workspaces under `terraform.tfstate.d/workspacename`.
+
 ### 8a Demonstrate use of variables and outputs
 
 / Expressions https://www.terraform.io/docs/configuration/expressions.html
