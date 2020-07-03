@@ -14,6 +14,7 @@
   - [3a Handle Terraform and provider installation and versioning](#3a-handle-terraform-and-provider-installation-and-versioning)
     - [Providers](#providers)
     - [Provider Configuration](#provider-configuration)
+      - [Values Before Configuration is Applied](#values-before-configuration-is-applied)
     - [Initialization](#initialization)
     - [Provider Versions](#provider-versions)
     - [Writing Custom Providers](#writing-custom-providers)
@@ -43,7 +44,13 @@
     - [Tainting a single resource created with for_each](#tainting-a-single-resource-created-with-for_each)
     - [Tainting a Resource within a Module](#tainting-a-resource-within-a-module)
   - [4c Given a scenario: choose when to use terraform import to import existing infrastructure into your Terraform state](#4c-given-a-scenario-choose-when-to-use-terraform-import-to-import-existing-infrastructure-into-your-terraform-state)
+    - [Provider Configuration](#provider-configuration-1)
   - [4d Given a scenario: choose when to use terraform workspace to create workspaces](#4d-given-a-scenario-choose-when-to-use-terraform-workspace-to-create-workspaces)
+    - [Multiple Workspace Support](#multiple-workspace-support)
+    - [Using Workspaces](#using-workspaces)
+    - [Current Workspace Interpolation](#current-workspace-interpolation)
+    - [When to use Multiple Workspaces](#when-to-use-multiple-workspaces)
+    - [Workspace Internals](#workspace-internals)
   - [4e Given a scenario: choose when to use terraform state to view Terraform state](#4e-given-a-scenario-choose-when-to-use-terraform-state-to-view-terraform-state)
   - [4f Given a scenario: choose when to enable verbose logging and what the outcome/value is](#4f-given-a-scenario-choose-when-to-enable-verbose-logging-and-what-the-outcomevalue-is)
 - [5 Interact with Terraform modules](#5-interact-with-terraform-modules)
@@ -191,16 +198,18 @@ https://learn.hashicorp.com/terraform/getting-started/intro
   - the "google" provider is assumed to be the provider for the resource type name `google_compute_instance`.
   - the "aws" provider is assumed for `aws_instance`.
 
+##### Values Before Configuration is Applied
 > **Investigate**
 - Since provider configurations must be evaluated in order to perform any resource type action, provider configurations may refer only to values that are known before the configuration is applied.
 - In particular, avoid referring to attributes exported by other resources unless their values are specified directly in the configuration.
 
 #### Initialization
-> **Simplify**
-- Provider initialization is one of the actions of `terraform init`.
- * Running this command will download and initialize any providers that are not already initialized.
-- Providers downloaded by `terraform init` are only installed for the *current working directory*; other working directories can have their own installed provider versions.
-- Note that `terraform init` *cannot automatically download providers that are not distributed by HashiCorp*.
+- `terraform init`
+  - downloads providers that are distributed by HashiCorp
+    - only installed for the *current working directory*
+    - other working directories can have their own installed provider versions
+    - [third-party plugins](#third-party-plugins) must be downloaded separately
+  - initialize any providers that are not already initialized
 
 #### Provider Versions
 - Providers are plugins released on a separate rhythm from Terraform itself, and so they have their own version numbers.
@@ -255,7 +264,6 @@ https://learn.hashicorp.com/terraform/getting-started/intro
   ```
 
 ##### Specifying a Required Terraform Version
-> **Simplify**
 - The `required_version` setting can be used to constrain which versions of the Terraform CLI can be used with your configuration.
 - If the running version of Terraform doesn't match the constraints specified, Terraform will produce an error and exit without taking any further actions.
 - When you use child modules, each module can specify its own version requirements.
@@ -332,6 +340,7 @@ https://learn.hashicorp.com/terraform/getting-started/intro
         }
       }
       ```
+
 #### Third-party plugins
 > **Investigate**
 - Install third-party providers by placing their plugin executables in the user plugins directory.
@@ -594,12 +603,147 @@ Resource instance module.couchbase.aws_instance.cb_node[9] has been marked as ta
 ### 4c Given a scenario: choose when to use terraform import to import existing infrastructure into your Terraform state
 
 > **Investigate**
-- https://www.terraform.io/docs/commands/import.html
+The terraform import command is used to import existing resources into Terraform.
+
+Usage: `terraform import [options] ADDRESS ID`
+
+- Import will find the existing resource from ID and import it into your Terraform state at the given ADDRESS.
+- ADDRESS must be a valid resource address. Because any resource address is valid, the import command can import resources into modules as well directly into the root of your state.
+- ID is dependent on the resource type being imported. For example, for AWS instances it is the instance ID (i-abcd1234) but for AWS Route53 zones it is the zone ID (Z12ABC4UGMOZ2N). Please reference the provider documentation for details on the ID format. If you're unsure, feel free to just try an ID. If the ID is invalid, you'll just receive an error message.
+- The command-line flags are all optional. The list of available flags are:
+  - `-backup=path` - Path to backup the existing state file. Defaults to the -state-out path with the ".backup" extension. Set to "-" to disable backups.
+  - `-config=path` - Path to directory of Terraform configuration files that configure the provider for import. This defaults to your working directory. If this directory contains no Terraform configuration files, the provider must be configured via manual input or environmental variables.
+  - `-input=true` - Whether to ask for input for provider configuration.
+  - `-lock=true` - Lock the state file when locking is supported.
+  - `-lock-timeout=0s` - Duration to retry a state lock.
+  - `-no-color` - If specified, output won't contain any color.
+  - `-parallelism=n` - Limit the number of concurrent operation as Terraform walks the graph. Defaults to 10.
+  - `-provider=provider` - Deprecated Override the provider configuration to use when importing the object. By default, Terraform uses the provider specified in the configuration for the target resource, and that is the best behavior in most cases.
+  - `-state=path` - Path to the source state file to read from. Defaults to the configured backend, or "terraform.tfstate".
+  - `-state-out=path` - Path to the destination state file to write to. If this isn't specified the source state file will be used. This can be a new or existing path.
+  - `-var 'foo=bar' - Set a variable in the Terraform configuration. This flag can be set multiple times. Variable values are interpreted as HCL, so list and map values can be specified via this flag. This is only useful with the -config flag.
+  - `-var-file=foo` - Set variables in the Terraform configuration from a variable file. If a terraform.tfvars or any .auto.tfvars files are present in the current directory, they will be automatically loaded. terraform.tfvars is loaded first and the .auto.tfvars files after in alphabetical order. Any files specified by -var-file override any values set automatically from files in the working directory. This flag can be used multiple times. This is only useful with the -config flag.
+
+#### Provider Configuration
+> **Investigate**
+- Terraform will attempt to load configuration files that configure the provider being used for import. 
+  - If no configuration files are present or no configuration for that specific provider is present, Terraform will prompt you for access credentials. 
+  - You may also specify environmental variables to configure the provider.
+- The only limitation Terraform has when reading the configuration files is that the import provider configurations must not depend on non-variable inputs. 
+  - For example, a provider configuration cannot depend on a data source.
+  - See [values before configuration is applied](#values-before-configuration-is-applied)
+- As a working example, if you're importing AWS resources and you have a configuration file with the contents below, then Terraform will configure the AWS provider with this file.
+```hcl
+variable "access_key" {}
+variable "secret_key" {}
+
+provider "aws" {
+  access_key = "${var.access_key}"
+  secret_key = "${var.secret_key}"
+}
+```
+- This example will import an AWS instance into the aws_instance resource named foo:
+```bash
+$ terraform import aws_instance.foo i-abcd1234
+```
+- The example below will import an AWS instance into the aws_instance resource named bar into a module named foo:
+```bash
+$ terraform import module.foo.aws_instance.bar i-abcd1234
+```
+- The example below will import an AWS instance into the first instance of the aws_instance resource named baz configured with count:
+```bash
+$ terraform import 'aws_instance.baz[0]' i-abcd1234
+```
+- The example below will import an AWS instance into the "example" instance of the aws_instance resource named baz configured with for_each:
+  - Linux, Mac OS, and UNIX:
+  ```bash
+  $ terraform import 'aws_instance.baz["example"]' i-abcd1234
+  ```
+  - PowerShell:
+  ```powershell
+  $ terraform import 'aws_instance.baz[\"example\"]' i-abcd1234
+  ```
+  - Windows cmd.exe:
+  ```bash
+  $ terraform import aws_instance.baz[\"example\"] i-abcd1234
+  ```
 
 ### 4d Given a scenario: choose when to use terraform workspace to create workspaces
 
-> **Investigate**
-- https://www.terraform.io/docs/state/workspaces.html
+#### Multiple Workspace Support
+Multiple workspaces are currently supported by the following backends:
+- AzureRM
+- Consul
+- COS
+- GCS
+- Local
+- Manta
+- Postgres
+- Remote
+- S3
+
+#### Using Workspaces
+- The "default" workspace is special both because it is the default and also because it cannot ever be deleted.
+- Workspaces are managed with the `terraform workspace` set of commands. 
+  - to create a new workspace and switch to it, you can use `terraform workspace new [workspace name]`
+  - to switch workspaces you can use `terraform workspace select [workspace name]`
+  - for example, creating a new workspace:
+  ```bash
+  $ terraform workspace new bar
+  Created and switched to workspace "bar"!
+  You're now on a new, empty workspace. Workspaces isolate their state,
+  so if you run "terraform plan" Terraform will not see any existing state
+  for this configuration.
+  ```
+- If you run `terraform plan` in a new workspace, Terraform will not see any existing resources that existed on the `default` (or any other) workspace. 
+  - These resources still physically exist, but are managed in another Terraform workspace.
+
+#### Current Workspace Interpolation
+- Referencing the current workspace is useful for changing behavior based on the workspace. 
+- For example, for non-default workspaces, it may be useful to spin up smaller cluster sizes. For example:
+```hcl
+resource "aws_instance" "example" {
+  count = "${terraform.workspace == "default" ? 5 : 1}"
+
+  # ... other arguments
+}
+```
+-Another popular use case is using the workspace name as part of naming or tagging behavior:
+```hcl
+resource "aws_instance" "example" {
+  tags = {
+    Name = "web - ${terraform.workspace}"
+  }
+
+  # ... other arguments
+}
+```
+
+#### When to use Multiple Workspaces
+- A common use for multiple workspaces is to create a parallel, distinct copy of a set of infrastructure in order to test a set of changes before modifying the main production infrastructure. 
+  - For example, a developer working on a complex set of infrastructure changes might create a new temporary workspace in order to freely experiment with changes without affecting the default workspace.
+- Non-default workspaces are often related to feature branches in version control. 
+  - The default workspace might correspond to the "master" or "trunk" branch, which describes the intended state of production infrastructure. 
+  - When a feature branch is created to develop a change, the developer of that feature might create a corresponding workspace and deploy into it a temporary "copy" of the main infrastructure so that changes can be tested without affecting the production infrastructure. 
+  - Once the change is merged and deployed to the default workspace, the test infrastructure can be destroyed and the temporary workspace deleted.
+- When Terraform is used to manage larger systems, teams should use multiple separate Terraform configurations that correspond with suitable architectural boundaries within the system so that different components can be managed separately and, if appropriate, by distinct teams. 
+  - Workspaces alone **are not a suitable tool for system decomposition**, because each subsystem should have its own separate configuration and backend, and will thus have its own distinct set of workspaces.
+  - In particular, organizations commonly want to create a strong separation between multiple deployments of the same infrastructure serving different development stages (e.g. staging vs. production) or different internal teams. 
+  - In this case, the backend used for each deployment often belongs to that deployment, with different credentials and access controls. **Named workspaces are not a suitable isolation mechanism for this scenario**.
+  - Instead, use one or more re-usable modules to represent the common elements, and then represent each instance as a separate configuration that instantiates those common elements in the context of a different backend. 
+  - In that case, the root module of each configuration will consist only of a backend configuration and a small number of module blocks whose arguments describe any small differences between the deployments.
+- Where multiple configurations are representing distinct system components rather than multiple deployments, data can be passed from one component to another using paired resources types and data sources. For example:
+  - Where a shared Consul cluster is available, use `consul_key_prefix` to publish to the key/value store and `consul_keys` to retrieve those values in other configurations.
+  - In systems that support user-defined labels or tags, use a tagging convention to make resources automatically discoverable. For example, use the `aws_vpc` resource type to assign suitable tags and then the `aws_vpc` data source to query by those tags in other configurations.
+  - For server addresses, use a provider-specific resource to create a DNS record with a predictable name and then either use that name directly or use the `dns` provider to retrieve the published addresses in other configurations.
+  - If a Terraform state for one configuration is stored in a remote backend that is accessible to other configurations then `terraform_remote_state` can be used to directly consume its root module outputs from those other configurations. This creates a tighter coupling between configurations, but avoids the need for the "producer" configuration to explicitly publish its results in a separate system.
+
+#### Workspace Internals
+- Workspaces are technically equivalent to renaming your state file. They aren't any more complex than that. Terraform wraps this simple notion with a set of protections and support for remote state.
+- For local state, Terraform stores the workspace states in a directory called `terraform.tfstate.d`. This directory should be treated similarly to local-only `terraform.tfstate`; some teams commit these files to version control, although using a remote backend instead is recommended when there are multiple collaborators.
+- For remote state, the workspaces are stored directly in the configured backend. For example, if you use Consul, the workspaces are stored by appending the workspace name to the state path. To ensure that workspace names are stored correctly and safely in all backends, the name must be valid to use in a URL path segment without escaping.
+- The important thing about workspace internals is that workspaces are meant to be a shared resource. They aren't a private, local-only notion (unless you're using purely local state and not committing it).
+- The "current workspace" name is stored only locally in the ignored `.terraform` directory. This allows multiple team members to work on different workspaces concurrently. The "current workspace" name is not currently meaningful in Terraform Cloud workspaces since it will always have the value default.
 
 ### 4e Given a scenario: choose when to use terraform state to view Terraform state
 
